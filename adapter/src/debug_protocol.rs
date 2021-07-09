@@ -16,8 +16,8 @@ pub use raw_debug_protocol::{
     SetDataBreakpointsArguments, SetDataBreakpointsResponseBody, SetExceptionBreakpointsArguments,
     SetFunctionBreakpointsArguments, SetVariableArguments, SetVariableResponseBody, Source, SourceArguments,
     SourceBreakpoint, SourceResponseBody, StackFrame, StackTraceArguments, StackTraceResponseBody, StepBackArguments,
-    StepInArguments, StepOutArguments, StoppedEventBody, TerminateArguments, TerminatedEventBody, Thread,
-    ThreadEventBody, ThreadsResponseBody, Variable, VariablesArguments, VariablesResponseBody,
+    StepInArguments, StepOutArguments, SteppingGranularity, StoppedEventBody, TerminateArguments, TerminatedEventBody,
+    Thread, ThreadEventBody, ThreadsResponseBody, Variable, VariablesArguments, VariablesResponseBody,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

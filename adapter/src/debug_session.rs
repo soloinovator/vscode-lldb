@@ -525,6 +525,7 @@ impl DebugSession {
             supports_restart_frame: Some(true),
             supports_cancel_request: Some(true),
             supports_disassemble_request: Some(true),
+            supports_stepping_granularity: Some(true),
             supports_read_memory_request: Some(true),
             supports_evaluate_for_hovers: Some(self.evaluate_for_hovers),
             supports_completions_request: Some(self.command_completions),
@@ -1163,11 +1164,20 @@ impl DebugSession {
         };
 
         self.before_resume();
-        let frame = thread.frame_at_index(0);
-        if !self.in_disassembly(&frame) {
-            thread.step_over(RunMode::OnlyDuringStepping);
-        } else {
+
+        let step_instruction = match args.granularity {
+            Some(SteppingGranularity::Instruction) => true,
+            Some(SteppingGranularity::Line) | Some(SteppingGranularity::Statement) => false,
+            None => {
+                let frame = thread.frame_at_index(0);
+                self.in_disassembly(&frame)
+            }
+        };
+
+        if step_instruction {
             thread.step_instruction(true);
+        } else {
+            thread.step_over(RunMode::OnlyDuringStepping);
         }
         Ok(())
     }
@@ -1182,11 +1192,20 @@ impl DebugSession {
         };
 
         self.before_resume();
-        let frame = thread.frame_at_index(0);
-        if !self.in_disassembly(&frame) {
-            thread.step_into(RunMode::OnlyDuringStepping);
-        } else {
+
+        let step_instruction = match args.granularity {
+            Some(SteppingGranularity::Instruction) => true,
+            Some(SteppingGranularity::Line) | Some(SteppingGranularity::Statement) => false,
+            None => {
+                let frame = thread.frame_at_index(0);
+                self.in_disassembly(&frame)
+            }
+        };
+
+        if step_instruction {
             thread.step_instruction(false);
+        } else {
+            thread.step_into(RunMode::OnlyDuringStepping);
         }
         Ok(())
     }

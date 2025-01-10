@@ -1,0 +1,135 @@
+import os
+import json
+import io
+from openai import OpenAI
+from openai.types.beta.assistant_stream_event import ThreadRunRequiresAction, ThreadMessageCompleted
+from octokit import Octokit
+from textwrap import dedent
+
+class IssueAnalyzer:
+    def __init__(self):
+        self.octokit = Octokit()
+        self.openai = OpenAI()
+        self.repo_full_name = os.getenv('GITHUB_REPOSITORY')
+
+    def handle_event(self):
+
+        with open(os.getenv('GITHUB_EVENT_PATH'), 'rb') as f:
+            event = json.load(f)
+            print(event)
+
+        match os.getenv('GITHUB_EVENT_NAME'):
+            case 'issues':
+                issue = event['issue']
+            case 'workflow_dispatch':
+                issue_number = int(event['inputs']['issue'])
+                owner, repo = self.repo_full_name.split('/')
+                response = self.octokit.issues.get(owner=owner, repo=repo, issue_number=issue_number)
+                issue = response.json
+
+        issue_file = self.openai.files.create(
+            file=('BUG_REPORT.md', self.make_issue_content(issue)),
+            purpose='assistants'
+        )
+
+        assistant = self.openai.beta.assistants.retrieve(os.getenv('ASSISTANT_ID'))
+
+        thread = self.openai.beta.threads.create(
+            metadata={'issue_number': f'Issue issue["number"]'},
+            messages=[
+                {
+                    'role': 'user',
+                    'content': dedent('''
+                        We have a new issue report (attached).
+                        Search repository for similar issues and suggest which ones the new issue might be related to, or is a duplicate of.
+                        Suggest matching labels for the issue, explaining your reasoning.  Use only the labels listed in LABELS.md.  Add labels to the issue.
+                        If the report title matches its content poorly, you may suggest a better title.
+                    '''),
+                    'attachments': [{
+                        'file_id': issue_file.id,
+                        'tools': [{'type': 'file_search'}]
+                    }]
+                }
+            ]
+        )
+
+        stream = self.openai.beta.threads.runs.create(
+            assistant_id=assistant.id,
+            thread_id=thread.id,
+            stream=True
+        )
+
+        streams = [stream]
+        while streams:
+            stream = streams.pop(0)
+            for event in stream:
+                match event:
+                    case ThreadMessageCompleted():
+                        for c in event.data.content:
+                            print(c.text.value)
+                    case ThreadRunRequiresAction():
+                        tool_outputs = []
+                        for tool in event.data.required_action.submit_tool_outputs.tool_calls:
+                            if tool.function.name == 'add_issue_labels':
+                                args = json.loads(tool.function.arguments)
+                                print('Add issue labels', args)
+                                tool_outputs.append({'tool_call_id': tool.id, 'output': 'Ok'})
+                            elif tool.function.name == 'set_issue_title':
+                                args = json.loads(tool.function.arguments)
+                                print('Set issue title', args)
+                                tool_outputs.append({'tool_call_id': tool.id, 'output': 'Ok'})
+                            elif tool.function.name == 'search_github':
+                                args = json.loads(tool.function.arguments)
+                                query = f'repo:{self.repo_full_name} {args["query"]}'
+                                output = self.search_github(query, thread)
+                                tool_outputs.append({'tool_call_id': tool.id, 'output': output})
+
+                        new_stream = self.openai.beta.threads.runs.submit_tool_outputs(
+                            thread_id=thread.id,
+                            run_id=event.data.id,
+                            tool_outputs=tool_outputs,
+                            stream=True)
+                        streams.append(new_stream)
+
+    def search_github(self, query: str, thread) -> str:
+        response = self.octokit.search.issues(q=query)
+        print(response.json)
+        if response.json.get('status'):
+            return f'Search failed: {response.json["message"]}'
+
+        issues = response.json['items'][:5]
+        result_lines = []
+        for issue in issues:
+            item_number = issue['number']
+            issue_file = self.openai.files.create(
+                file=(f'ISSUE_{item_number}.md', self.make_issue_content(issue, fetch_comments=True)),
+                purpose='assistants'
+            )
+            self.openai.beta.vector_stores.files.create(
+                vector_store_id=thread.tool_resources.file_search.vector_store_ids[0],
+                file_id=issue_file.id,
+            )
+            result_lines.append(f'Issue number: {item_number}, file name: {issue_file.filename}')
+        result_lines.insert(0, f'Found {len(result_lines)} issues and attached as files to this thread:')
+        return '\n'.join(result_lines)
+
+    def make_issue_content(self, issue, fetch_comments=False) -> bytes:
+        print('make_issue_content', issue)
+        f = io.StringIO()
+        f.write(f'### Title: {issue["title"]}\n')
+        f.write(f'### Author: {issue["user"]["login"]}\n')
+        f.write(f'\n{issue["body"]}\n')
+
+        if fetch_comments:
+            owner, repo = self.repo_full_name.split('/')
+            comments = self.octokit.issues.list_issue_comments(
+                owner=owner, repo=repo, issue_number=issue['number'])
+            for comment in comments.json:
+                f.write(f'### Comment by {comment["user"]["login"]}\n')
+                f.write(f'\n{comment["body"]}\n')
+
+        return f.getvalue().encode('utf-8')
+
+
+if __name__ == '__main__':
+    IssueAnalyzer().handle_event()

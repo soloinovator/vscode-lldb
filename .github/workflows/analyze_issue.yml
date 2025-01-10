@@ -1,0 +1,32 @@
+name: analyze_issue
+
+on:
+  # issues:
+  #   types: [opened]
+  workflow_dispatch:
+    inputs:
+      issue: null
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install openai octokitpy
+
+      - name: Analyze
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ASSISTANT_ID: ${{ vars.ASSISTANT_ID }}
+        run: |
+          python .github/workflows/analyze_issue.py

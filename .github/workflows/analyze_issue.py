@@ -16,7 +16,6 @@ class IssueAnalyzer:
 
         with open(os.getenv('GITHUB_EVENT_PATH'), 'rb') as f:
             event = json.load(f)
-            print(event)
 
         match os.getenv('GITHUB_EVENT_NAME'):
             case 'issues':
@@ -94,7 +93,6 @@ class IssueAnalyzer:
 
     def search_github(self, query: str, thread, exclude:list=[], max_results=5) -> str:
         response = self.octokit.search.issues(q=query)
-        print(response.json)
         if response.json.get('status'):
             return f'Search failed: {response.json["message"]}'
 
@@ -119,7 +117,6 @@ class IssueAnalyzer:
         return '\n'.join(result_lines)
 
     def make_issue_content(self, issue, fetch_comments=False) -> bytes:
-        print('make_issue_content', issue)
         f = io.StringIO()
         f.write(f'### Title: {issue["title"]}\n')
         f.write(f'### Author: {issue["user"]["login"]}\n')

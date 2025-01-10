@@ -41,7 +41,7 @@ class IssueAnalyzer:
                     'content': dedent('''
                         We have a new issue report (attached as BUG_REPORT.md).
                         1. Search repository for similar issues and suggest which ones the new issue might be related to, or is a duplicate of.
-                        2. Suggest matching labels for the issue, explaining your reasoning.  Use **only** the labels listed in LABELS.md.  
+                        2. Suggest matching labels for the issue, explaining your reasoning.  Do not invent new labels, use **only** existing labels listed in LABELS.md.
                            Add labels to the issue.
                         3. If the report title matches its content poorly, you may suggest a better title.  However, do this **only** if the original title if very bad.
                     '''),

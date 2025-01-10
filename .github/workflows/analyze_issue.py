@@ -69,18 +69,17 @@ class IssueAnalyzer:
                     case ThreadRunRequiresAction():
                         tool_outputs = []
                         for tool in event.data.required_action.submit_tool_outputs.tool_calls:
+                            args = json.loads(tool.function.arguments)
                             print(f'Tool call:', tool.function.name, args)
-                            if tool.function.name == 'add_issue_labels':
-                                args = json.loads(tool.function.arguments)
-                                tool_outputs.append({'tool_call_id': tool.id, 'output': 'Ok'})
-                            elif tool.function.name == 'set_issue_title':
-                                args = json.loads(tool.function.arguments)
-                                tool_outputs.append({'tool_call_id': tool.id, 'output': 'Ok'})
-                            elif tool.function.name == 'search_github':
-                                args = json.loads(tool.function.arguments)
-                                query = f'repo:{self.repo_full_name} {args["query"]}'
-                                output = self.search_github(query, thread_vstore_id, exclude=[issue['number']])
-                                tool_outputs.append({'tool_call_id': tool.id, 'output': output})
+                            match tool.function.name:
+                                case 'add_issue_labels':
+                                    tool_outputs.append({'tool_call_id': tool.id, 'output': 'Ok'})
+                                case 'set_issue_title':
+                                    tool_outputs.append({'tool_call_id': tool.id, 'output': 'Ok'})
+                                case 'search_github':
+                                    query = f'repo:{self.repo_full_name} {args["query"]}'
+                                    output = self.search_github(query, thread_vstore_id, exclude=[issue['number']])
+                                    tool_outputs.append({'tool_call_id': tool.id, 'output': output})
 
                         new_stream = self.openai.beta.threads.runs.submit_tool_outputs(
                             thread_id=thread.id,

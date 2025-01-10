@@ -19,6 +19,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: 'pip'
+          cache-dependency-path: .github/workflows/analyze_issue.yml
 
       - name: Install dependencies
         run: pip install openai octokitpy

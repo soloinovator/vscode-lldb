@@ -81,7 +81,7 @@ class IssueAnalyzer:
                             elif tool.function.name == 'search_github':
                                 args = json.loads(tool.function.arguments)
                                 query = f'repo:{self.repo_full_name} {args["query"]}'
-                                output = self.search_github(query, thread)
+                                output = self.search_github(query, thread, exclude=[issue['number']])
                                 tool_outputs.append({'tool_call_id': tool.id, 'output': output})
 
                         new_stream = self.openai.beta.threads.runs.submit_tool_outputs(
@@ -91,25 +91,29 @@ class IssueAnalyzer:
                             stream=True)
                         streams.append(new_stream)
 
-    def search_github(self, query: str, thread) -> str:
+    def search_github(self, query: str, thread, exclude:list=[], max_results=5) -> str:
         response = self.octokit.search.issues(q=query)
         print(response.json)
         if response.json.get('status'):
             return f'Search failed: {response.json["message"]}'
 
-        issues = response.json['items'][:5]
         result_lines = []
-        for issue in issues:
-            item_number = issue['number']
+        for issue in response.json['items']:
+            issue_number = issue['number']
+            if issue_number in exclude:
+                continue
             issue_file = self.openai.files.create(
-                file=(f'ISSUE_{item_number}.md', self.make_issue_content(issue, fetch_comments=True)),
+                file=(f'ISSUE_{issue_number}.md', self.make_issue_content(issue, fetch_comments=True)),
                 purpose='assistants'
             )
             self.openai.beta.vector_stores.files.create(
                 vector_store_id=thread.tool_resources.file_search.vector_store_ids[0],
                 file_id=issue_file.id,
             )
-            result_lines.append(f'Issue number: {item_number}, file name: {issue_file.filename}')
+            result_lines.append(f'Issue number: {issue_number}, file name: {issue_file.filename}')
+            if len(result_lines) >= max_results:
+                break
+
         result_lines.insert(0, f'Found {len(result_lines)} issues and attached as files to this thread:')
         return '\n'.join(result_lines)
 

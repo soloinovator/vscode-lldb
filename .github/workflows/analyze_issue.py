@@ -69,17 +69,15 @@ class IssueAnalyzer:
                     case ThreadRunRequiresAction():
                         tool_outputs = []
                         for tool in event.data.required_action.submit_tool_outputs.tool_calls:
+                            print(f'Tool call:', tool.function.name, args)
                             if tool.function.name == 'add_issue_labels':
                                 args = json.loads(tool.function.arguments)
-                                print('Tool call: add_issue_labels', args)
                                 tool_outputs.append({'tool_call_id': tool.id, 'output': 'Ok'})
                             elif tool.function.name == 'set_issue_title':
                                 args = json.loads(tool.function.arguments)
-                                print('Tool call: set_issue_title', args)
                                 tool_outputs.append({'tool_call_id': tool.id, 'output': 'Ok'})
                             elif tool.function.name == 'search_github':
                                 args = json.loads(tool.function.arguments)
-                                print('Tool call: search_github', args)
                                 query = f'repo:{self.repo_full_name} {args["query"]}'
                                 output = self.search_github(query, thread_vstore_id, exclude=[issue['number']])
                                 tool_outputs.append({'tool_call_id': tool.id, 'output': output})
@@ -114,6 +112,7 @@ class IssueAnalyzer:
                 break
 
         self.wait_vector_store(vstore_id)
+
         result_lines.insert(0, f'Found {len(result_lines)} issues and attached as files to this thread:')
         return '\n'.join(result_lines)
 
@@ -137,12 +136,10 @@ class IssueAnalyzer:
     
     def wait_vector_store(self, vstore_id):
         vstore = self.openai.beta.vector_stores.retrieve(vstore_id)
-        print(vstore)
         while vstore.status == 'in_progress':
             print('Waiting for vector store.')
             time.sleep(1)
             vstore = self.openai.beta.vector_stores.retrieve(vstore_id)
-            print(vstore)
 
 
 if __name__ == '__main__':

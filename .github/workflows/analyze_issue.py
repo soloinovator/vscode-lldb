@@ -4,7 +4,6 @@ import io
 from openai import OpenAI
 from openai.types.beta.assistant_stream_event import ThreadRunRequiresAction, ThreadMessageCompleted
 from octokit import Octokit
-from textwrap import dedent
 
 class IssueAnalyzer:
     def __init__(self):
@@ -26,25 +25,18 @@ class IssueAnalyzer:
                 response = self.octokit.issues.get(owner=owner, repo=repo, issue_number=issue_number)
                 issue = response.json
 
+        assistant = self.openai.beta.assistants.retrieve(os.getenv('ASSISTANT_ID'))
+
         issue_file = self.openai.files.create(
-            file=('BUG_REPORT.md', self.make_issue_content(issue)),
+            file=('NEW_ISSUE.md', self.make_issue_content(issue)),
             purpose='assistants'
         )
 
-        assistant = self.openai.beta.assistants.retrieve(os.getenv('ASSISTANT_ID'))
-
         thread = self.openai.beta.threads.create(
             metadata={'issue': f'{issue["number"]}: {issue["title"]}'},
-            messages=[
-                {
+            messages=[{
                     'role': 'user',
-                    'content': dedent('''
-                        We have a new issue report (attached as BUG_REPORT.md).
-                        1. Search repository for similar issues and suggest which ones the new issue might be related to, or is a duplicate of.
-                        2. Suggest matching labels for the issue, explaining your reasoning.  Do not invent new labels, use **only** existing labels listed in LABELS.md.
-                           Add labels to the issue.
-                        3. If the report title matches its content poorly, you may suggest a better title.  However, do this **only** if the original title if very bad.
-                    '''),
+                    'content': 'We have a new issue report, see NEW_ISSUE.md',
                     'attachments': [{
                         'file_id': issue_file.id,
                         'tools': [{'type': 'file_search'}]

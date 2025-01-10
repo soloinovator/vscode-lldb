@@ -132,10 +132,12 @@ class IssueAnalyzer:
     
     def wait_vector_store(self, vstore_id):
         vstore = self.openai.beta.vector_stores.retrieve(vstore_id)
+        print(vstore)
         while vstore.status == 'in_progress':
             print('Waiting for vector store.')
             time.sleep(1)
             vstore = self.openai.beta.vector_stores.retrieve(vstore_id)
+            print(vstore)
 
 
 if __name__ == '__main__':

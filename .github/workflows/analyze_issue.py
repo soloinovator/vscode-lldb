@@ -34,10 +34,13 @@ class IssueAnalyzer:
         )
 
         thread = self.openai.beta.threads.create(
-            metadata={'issue': f'{issue["number"]}: {issue["title"]}'},
+            metadata={
+                'issue': f'{issue["number"]}: {issue["title"]}',
+                'run_id': os.getenv['GITHUB_RUN_ID'],
+            },
             messages=[{
                     'role': 'user',
-                    'content': 'We have a new issue report, see NEW_ISSUE.md',
+                    'content': 'We have a new issue report (attached as NEW_ISSUE.md)',
                     'attachments': [{
                         'file_id': issue_file.id,
                         'tools': [{'type': 'file_search'}]

@@ -62,20 +62,21 @@ class IssueAnalyzer:
                 match event:
                     case ThreadMessageCompleted():
                         for c in event.data.content:
-                            print(c.text.value)
+                            print('Assistant:', c.text.value)
                     case ThreadRunRequiresAction():
                         tool_outputs = []
                         for tool in event.data.required_action.submit_tool_outputs.tool_calls:
                             if tool.function.name == 'add_issue_labels':
                                 args = json.loads(tool.function.arguments)
-                                print('Add issue labels', args)
+                                print('Tool call: add_issue_labels', args)
                                 tool_outputs.append({'tool_call_id': tool.id, 'output': 'Ok'})
                             elif tool.function.name == 'set_issue_title':
                                 args = json.loads(tool.function.arguments)
-                                print('Set issue title', args)
+                                print('Tool call: set_issue_title', args)
                                 tool_outputs.append({'tool_call_id': tool.id, 'output': 'Ok'})
                             elif tool.function.name == 'search_github':
                                 args = json.loads(tool.function.arguments)
+                                print('Tool call: search_github', args)
                                 query = f'repo:{self.repo_full_name} {args["query"]}'
                                 output = self.search_github(query, thread_vstore_id, exclude=[issue['number']])
                                 tool_outputs.append({'tool_call_id': tool.id, 'output': output})
@@ -132,7 +133,7 @@ class IssueAnalyzer:
     def wait_vector_store(self, vstore_id):
         vstore = self.openai.beta.vector_stores.retrieve(vstore_id)
         while vstore.status == 'in_progress':
-            print('Waiting for vector store', vstore_id)
+            print('Waiting for vector store.')
             time.sleep(1)
             vstore = self.openai.beta.vector_stores.retrieve(vstore_id)
 

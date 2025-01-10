@@ -1,6 +1,7 @@
 import os
 import json
 import io
+import time
 from openai import OpenAI
 from openai.types.beta.assistant_stream_event import ThreadRunRequiresAction, ThreadMessageCompleted
 from octokit import Octokit
@@ -45,6 +46,9 @@ class IssueAnalyzer:
             ]
         )
 
+        thread_vstore_id = thread.tool_resources.file_search.vector_store_ids[0]
+        self.wait_vector_store(thread_vstore_id)
+
         stream = self.openai.beta.threads.runs.create(
             assistant_id=assistant.id,
             thread_id=thread.id,
@@ -73,7 +77,7 @@ class IssueAnalyzer:
                             elif tool.function.name == 'search_github':
                                 args = json.loads(tool.function.arguments)
                                 query = f'repo:{self.repo_full_name} {args["query"]}'
-                                output = self.search_github(query, thread, exclude=[issue['number']])
+                                output = self.search_github(query, thread_vstore_id, exclude=[issue['number']])
                                 tool_outputs.append({'tool_call_id': tool.id, 'output': output})
 
                         new_stream = self.openai.beta.threads.runs.submit_tool_outputs(
@@ -83,7 +87,7 @@ class IssueAnalyzer:
                             stream=True)
                         streams.append(new_stream)
 
-    def search_github(self, query: str, thread, exclude:list=[], max_results=5) -> str:
+    def search_github(self, query: str, vstore_id: str, exclude:list=[], max_results=5) -> str:
         response = self.octokit.search.issues(q=query)
         if response.json.get('status'):
             return f'Search failed: {response.json["message"]}'
@@ -98,13 +102,14 @@ class IssueAnalyzer:
                 purpose='assistants'
             )
             self.openai.beta.vector_stores.files.create(
-                vector_store_id=thread.tool_resources.file_search.vector_store_ids[0],
+                vector_store_id=vstore_id,
                 file_id=issue_file.id,
             )
             result_lines.append(f'Issue number: {issue_number}, file name: {issue_file.filename}')
             if len(result_lines) >= max_results:
                 break
 
+        self.wait_vector_store(vstore_id)
         result_lines.insert(0, f'Found {len(result_lines)} issues and attached as files to this thread:')
         return '\n'.join(result_lines)
 
@@ -123,6 +128,13 @@ class IssueAnalyzer:
                 f.write(f'\n{comment["body"]}\n')
 
         return f.getvalue().encode('utf-8')
+    
+    def wait_vector_store(self, vstore_id):
+        vstore = self.openai.beta.vector_stores.retrieve(vstore_id)
+        while vstore.status == 'in_progress':
+            print('Waiting for vector store', vstore_id)
+            time.sleep(1)
+            vstore = self.openai.beta.vector_stores.retrieve(vstore_id)
 
 
 if __name__ == '__main__':

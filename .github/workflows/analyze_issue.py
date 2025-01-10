@@ -35,7 +35,7 @@ class IssueAnalyzer:
         assistant = self.openai.beta.assistants.retrieve(os.getenv('ASSISTANT_ID'))
 
         thread = self.openai.beta.threads.create(
-            metadata={'issue_number': f'Issue issue["number"]'},
+            metadata={'issue': f'{issue["number"]}: {issue["title"]}'},
             messages=[
                 {
                     'role': 'user',

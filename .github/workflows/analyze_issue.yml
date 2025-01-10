@@ -30,5 +30,6 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           ASSISTANT_ID: ${{ vars.ASSISTANT_ID }}
+          PYTHONUNBUFFERED: 1
         run: |
           python .github/workflows/analyze_issue.py

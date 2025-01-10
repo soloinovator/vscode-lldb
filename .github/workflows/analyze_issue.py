@@ -119,7 +119,7 @@ class IssueAnalyzer:
         f.write(f'### Title: {issue["title"]}\n')
         f.write(f'### Author: {issue["user"]["login"]}\n')
         f.write(f'### State: {issue["state"]}\n')
-        f.write(f'### Labels: {','.join(label["name"] for label in issue["labels"])}\n')
+        f.write(f'### Labels: {",".join(label["name"] for label in issue["labels"])}\n')
         f.write(f'\n{issue["body"]}\n')
 
         if fetch_comments:

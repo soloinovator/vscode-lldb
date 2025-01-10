@@ -36,7 +36,7 @@ class IssueAnalyzer:
         thread = self.openai.beta.threads.create(
             metadata={
                 'issue': f'{issue["number"]}: {issue["title"]}',
-                'run_id': os.getenv['GITHUB_RUN_ID'],
+                'run_id': os.getenv('GITHUB_RUN_ID'),
             },
             messages=[{
                     'role': 'user',
